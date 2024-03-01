@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <title>Three.js tutorial - Example 04</title>
+    <meta http-equiv="content-type" content="text/html; charset=ISO-8859-1" />
+    <meta
+      name="viewport"
+      content="width=device-width, height=device-height, initial-scale=1"
+    />
+    <style type="text/css">
+      body {
+        /* body backgroud colour */
+        background-color: #000000;
+
+        /* Hide oversized content. This prevents the scroll bars. */
+        overflow: hidden;
+      }
+    </style>
+    <!-- Include two libraries 
+       1. Three.js (core library)
+       2. Detector.js (checks the browsers WebGL capabilities) -->
+    <script src="three.js"></script>
+    <script src="Detector.js"></script>
+  </head>
+  <body>
+    <!-- This is the DIV element which will contain the WebGL canvas. To be identifiable lateron, the id 'WebGLCanvas' is applied to it. -->
+    <div id="WebGLCanvas"></div>
+
+    <!-- This JavaScript block encloses the Three.js commands -->
+    <script>
+      var scene; // Global scene object
+      var camera; // Global camera object
+
+      var treeMesh1; // Global mesh object of the tree base
+      var treeMesh2; // Global mesh object of the tree inside
+      var treeMesh3; // Global mesh object of the tree top
+      var homeMesh; // Global mesh object of the home base
+      var roofMesh; // Global mesh object of the home roof
+      var squareMesh;
+      var circleMesh;
+      var circleMesh2;
+
+      initializeScene(); // Initialize the scene
+      animateScene(); // Animate the scene
+
+      /**
+       * Initialze the scene.
+       */
+      function initializeScene() {
+        // Check whether the browser supports WebGL. If so, instantiate the hardware accelerated
+        // WebGL renderer. For antialiasing, we have to enable it. The canvas renderer uses
+        // antialiasing by default.
+        // The approach of multiplse renderers is quite nice, because your scene can also be
+        // viewed in browsers, which don't support WebGL. The limitations of the canvas renderer
+        // in contrast to the WebGL renderer will be explained in the tutorials, when there is a
+        // difference.
+        if (Detector.webgl) {
+          renderer = new THREE.WebGLRenderer({ antialias: true });
+
+          // If its not supported, instantiate the canvas renderer to support all non WebGL browsers
+        } else {
+          renderer = new THREE.CanvasRenderer();
+        }
+
+        // Set renderer's background color and opacity
+        renderer.setClearColor(0x000000, 1);
+
+        // Get the size of the inner window (content area) to create a full size renderer
+        canvasWidth = window.innerWidth;
+        canvasHeight = window.innerHeight;
+
+        // Set the renderers size to the content areas size
+        renderer.setSize(canvasWidth, canvasHeight);
+
+        // Get the DIV element from the HTML document by its ID and append the renderers DOM
+        // object to it
+        document.getElementById("WebGLCanvas").appendChild(renderer.domElement);
+
+        // Create the scene, in which all objects are stored (e. g. camera, lights,
+        // geometries, ...)
+        // scene with all the object added to it will be rendered at the end
+        scene = new THREE.Scene();
+
+        // Now that we have a scene, we want to look into it. Therefore we need a camera.
+        // Three.js offers three camera types:
+        //  - PerspectiveCamera (perspective projection)
+        //  - OrthographicCamera (parallel projection)
+        //  - CombinedCamera (allows to switch between perspective / parallel projection
+        //    during runtime)
+        // In this example we create a perspective camera. Parameters for the perspective
+        // camera are ...
+        // ... field of view (FOV),
+        // ... aspect ratio (usually set to the quotient of canvas width to canvas height)
+        // ... near and
+        // ... far.
+        // Near and far define the cliping planes of the view frustum. Three.js provides an
+        // example (http://mrdoob.github.com/three.js/examples/
+        // -> canvas_camera_orthographic2.html), which allows to play around with these
+        // parameters.
+        // The camera is moved 10 units towards the z axis to allow looking to the center of
+        // the scene.
+        // After definition, the camera has to be added to the scene.
+        camera = new THREE.PerspectiveCamera(
+          25,
+          canvasWidth / canvasHeight,
+          1,
+          100
+        );
+        camera.position.set(10, 10, 60);
+        camera.lookAt(scene.position);
+        scene.add(camera);
+
+        // To create a pyramid, we use THREE.CylinderGeometry. By its five parameters, we are
+        // able to create the geometry of the pyramid (subtype of a cylinder).
+        // Parameter 1 'radiusTop': Controls the radius of the upper end of the cylinder. If we
+        //                          set to to '0', we have a cone.
+        // Parameter 2 'radiusBottom': Controls the radius of the lower end.
+        // Parameter 3 'height': Sets the height of the cylinder.
+        // Parameter 4 'segments': Number of segments, forming the cylindrical shell. To create
+        //                         a pyramid, we choose '4'.
+        // Parameter 5 'openEnded': Allows to have open ends ('true') or closed ends ('false')
+        //                          of the cylindern. Since the pyramid shall have a bottom
+        //                          face, we set it to 'false'.
+        var treeComponent = new THREE.CylinderGeometry(
+          0.0,
+          1.5,
+          1.5,
+          1000,
+          false
+        );
+        var homeRoof = new THREE.CylinderGeometry(3.0, 4.0, 1.5, 4, false);
+        var homeBase = new THREE.CubeGeometry(3, 3.5, 5);
+
+        // Coloring the faces with vertex colors is a bit tricky, but allows us to see how to
+        // loop through the faces and check whether they have three or four vertices.
+        // With a simple 'for'-loop we run through all faces, which are accessed by their index.
+        // The 'instanceof' operator gives the possibility to check, whether the current face is
+        // a THREE.Face4 or THREE.Face3. Depending on its object type, we set three or four
+        // vertex colors. For THREE.Face4 we switch the colors of vertex 1 and 2 for every
+        // second face because we want the lower vertices having the same colors as the
+        // neighbour face. Vertex 0 and 3 are the upper vertices, which are always red.
+        // If WebGL isn't supported and the canvas renderer is used, it ignores the vertex
+        // colors. They are only supported by the WebGL renderer
+        for (i = 0; i < treeComponent.faces.length; i++) {
+          if (treeComponent.faces[i] instanceof THREE.Face4) {
+            treeComponent.faces[i].vertexColors[0] = new THREE.Color(0x000000);
+            if (i % 2 == 0) {
+              treeComponent.faces[i].vertexColors[1] = new THREE.Color(
+                0x000000
+              );
+              treeComponent.faces[i].vertexColors[2] = new THREE.Color(
+                0x000000
+              );
+            } else {
+              treeComponent.faces[i].vertexColors[1] = new THREE.Color(
+                0x000000
+              );
+              treeComponent.faces[i].vertexColors[2] = new THREE.Color(
+                0x000000
+              );
+            }
+            treeComponent.faces[i].vertexColors[3] = new THREE.Color(0x000000);
+          } else {
+            treeComponent.faces[i].vertexColors[0] = new THREE.Color(0x00ff00);
+            treeComponent.faces[i].vertexColors[1] = new THREE.Color(0x00ff00);
+            treeComponent.faces[i].vertexColors[2] = new THREE.Color(0x000f00);
+          }
+        }
+
+        for (i = 0; i < homeRoof.faces.length; i++) {
+          if (homeRoof.faces[i] instanceof THREE.Face4) {
+            homeRoof.faces[i].vertexColors[0] = new THREE.Color(0x000000);
+            if (i % 2 == 0) {
+              homeRoof.faces[i].vertexColors[1] = new THREE.Color(0x000000);
+              homeRoof.faces[i].vertexColors[2] = new THREE.Color(0x000000);
+            } else {
+              homeRoof.faces[i].vertexColors[1] = new THREE.Color(0x000000);
+              homeRoof.faces[i].vertexColors[2] = new THREE.Color(0x000000);
+            }
+            homeRoof.faces[i].vertexColors[3] = new THREE.Color(0x000000);
+          } else {
+            homeRoof.faces[i].vertexColors[0] = new THREE.Color(0x00ff00);
+            homeRoof.faces[i].vertexColors[1] = new THREE.Color(0x00ff00);
+            homeRoof.faces[i].vertexColors[2] = new THREE.Color(0x000f00);
+          }
+        }
+
+        // Applying different materials to the faces is a more difficult than applying one
+        // material to the whole geometry. We start with creating an array of
+        // THREE.MeshBasicMaterial.
+        var homeMaterials = [
+          new THREE.MeshBasicMaterial({ color: 0xff0000 }),
+          new THREE.MeshBasicMaterial({ color: 0xff0000 }),
+          new THREE.MeshBasicMaterial({ color: 0xff0000 }),
+          new THREE.MeshBasicMaterial({ color: 0xff0000 }),
+          new THREE.MeshBasicMaterial({ color: 0xff0000 }),
+          new THREE.MeshBasicMaterial({ color: 0xff0000 }),
+        ];
+
+        // To activate the vertex color, we have to set 'vertexColors' attribute to
+        // 'THREE.VertexColors'. Otherwise they won't be displayed.
+
+        // Create a basic material, supporting vertex colors. Activate the 'doubleSided'
+        // attribute to force the rendering of both sides of each face (front and back).
+        // This prevents the so called 'backface culling'. Usually, only the side is
+        // rendered, whose normal vector points towards the camera. The other side is not
+        // rendered (backface culling). But this performance optimization sometimes leads
+        // to wholes in the surface. When this happens in your surface, simply set
+        // 'doubleSided' to 'true'.
+        var pyramidMaterial = new THREE.MeshBasicMaterial({
+          vertexColors: THREE.VertexColors,
+          side: THREE.DoubleSide,
+        });
+
+        var homeMaterial = new THREE.MeshFaceMaterial(homeMaterials);
+
+        // Create a mesh and insert the geometry and the material. Translate the whole mesh
+        // by -1.5 on the x axis and by 4 on the z axis. Finally add the mesh to the scene.
+        treeMesh1 = new THREE.Mesh(treeComponent, pyramidMaterial);
+        treeMesh2 = new THREE.Mesh(treeComponent, pyramidMaterial);
+        treeMesh3 = new THREE.Mesh(treeComponent, pyramidMaterial);
+        roofMesh = new THREE.Mesh(homeRoof, pyramidMaterial);
+        homeMesh = new THREE.Mesh(homeBase, homeMaterial);
+
+        treeMesh1.position.set(-1.5, 0.0, 4.0);
+        treeMesh2.position.set(-1.5, 1.5, 4.0);
+        treeMesh3.position.set(-1.5, 3.0, 4.0);
+        roofMesh.position.set(5.0, 5.0, 10.0);
+        homeMesh.position.set(5.0, 2.5, 10.0);
+
+        roofMesh.rotation.y = 3.9;
+
+        scene.add(treeMesh1);
+        scene.add(treeMesh2);
+        scene.add(treeMesh3);
+        scene.add(roofMesh);
+        scene.add(homeMesh);
+
+        var geometry = new THREE.CircleGeometry(0.5, 32);
+
+        var squareGeometry = new THREE.Geometry();
+        squareGeometry.vertices.push(new THREE.Vector3(-2.0, 1.0, 0.0));
+        squareGeometry.vertices.push(new THREE.Vector3(1.0, 1.0, 0.0));
+        squareGeometry.vertices.push(new THREE.Vector3(1.0, -1.0, 0.0));
+        squareGeometry.vertices.push(new THREE.Vector3(-2.0, -1.0, 0.0));
+        squareGeometry.faces.push(new THREE.Face3(0, 1, 2));
+        squareGeometry.faces.push(new THREE.Face3(0, 2, 3));
+
+        var squareMaterial = new THREE.MeshBasicMaterial({
+          color: 0xffff0f,
+          side: THREE.DoubleSide,
+        });
+
+        var circleMaterial = new THREE.MeshBasicMaterial({
+          color: 0x00ff0f,
+          side: THREE.DoubleSide,
+        });
+
+        squareMesh = new THREE.Mesh(squareGeometry, squareMaterial);
+        circleMesh = new THREE.Mesh(geometry, circleMaterial);
+        circleMesh2 = new THREE.Mesh(geometry, circleMaterial);
+        squareMesh.position.set(1.5, 2.0, 20.0);
+        circleMesh.position.set(2.0, 0.5, 20.0);
+        circleMesh2.position.set(0.0, 0.5, 20.0);
+
+        scene.add(squareMesh);
+        scene.add(circleMesh);
+        scene.add(circleMesh2);
+      }
+
+      /**
+       * Animate the scene and call rendering.
+       */
+      function animateScene() {
+        // Increase the y rotation of the triangle
+        treeMesh1.rotation.y += 0.1;
+        treeMesh2.rotation.y += 0.1;
+        treeMesh3.rotation.y += 0.1;
+
+        // homeMesh.translateX(0.1);
+        squareMesh.translateX(0.1);
+        circleMesh.translateX(0.1);
+        circleMesh2.translateX(0.1);
+
+        if (squareMesh.position.x > 12) {
+          squareMesh.position.x = -10;
+          circleMesh.position.x = -9.5;
+          circleMesh2.position.x = -11.5;
+        }
+
+
+        // Define the function, which is called by the browser supported timer loop. If the
+        // browser tab is not visible, the animation is paused. So 'animateScene()' is called
+        // in a browser controlled loop.
+        requestAnimationFrame(animateScene);
+
+        // Map the 3D scene down to the 2D screen (render the frame)
+        renderScene();
+      }
+
+      /**
+       * Render the scene. Map the 3D world to the 2D screen.
+       */
+      function renderScene() {
+        renderer.render(scene, camera);
+      }
+    </script>
+  </body>
+</html>

@@ -1,0 +1,11 @@
+.viewport {
+  align-items: center;
+  align-content: center;
+  align-self: center;
+  position: absolute;
+}
+.textdiv {
+  align-self: center;
+  text-align: center;
+  font-size:larger;
+}

@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title></title>
+    <link rel="stylesheet" href="main.css" />
+  </head>
+  <body>
+    <div class="viewport">
+      <div class = "textdiv">Wywróżmy z domina, na jaką ocenę zasługuje ten projekt</div>
+    </div>
+
+    <script src="three.min.js"></script>
+    <script src="physi.js"></script>
+    <script>
+      var container, scene, renderer, camera, light, ball, plane, fan, fan2;
+      var WIDTH, HEIGHT, VIEW_ANGLE, ASPECT, NEAR, FAR;
+
+      var clock = new THREE.Clock();
+      var bias = 1;
+      var fan_posx = 1;
+
+      Physijs.scripts.worker = "physijs_worker.js";
+      Physijs.scripts.ammo = "ammo.js";
+
+      container = document.querySelector(".viewport");
+
+      (WIDTH = window.innerWidth), (HEIGHT = window.innerHeight);
+
+      (VIEW_ANGLE = 50), (ASPECT = WIDTH / HEIGHT), (NEAR = 10), (FAR = 10000);
+
+      scene = new Physijs.Scene();
+      scene.setGravity(new THREE.Vector3(0, -100, 0));
+      scene.addEventListener("update", function () {
+        scene.simulate(undefined, 2);
+      });
+
+      renderer = new THREE.WebGLRenderer({
+        antialias: true,
+      });
+
+      renderer.setSize(WIDTH, HEIGHT);
+      renderer.shadowMapEnabled = true;
+      renderer.shadowMapSoft = true;
+      renderer.shadowMapType = THREE.PCFShadowMap;
+      renderer.shadowMapAutoUpdate = true;
+
+      container.appendChild(renderer.domElement);
+
+      camera = new THREE.PerspectiveCamera(VIEW_ANGLE, ASPECT, NEAR, FAR);
+
+      camera.position.set(100, 200, -200);
+      camera.lookAt(scene.position);
+      scene.add(camera);
+
+      light = new THREE.DirectionalLight(0xffffff);
+
+      light.position.set(0, 100, 60);
+      light.castShadow = true;
+      light.shadowCameraLeft = -100;
+      light.shadowCameraTop = -60;
+      light.shadowCameraRight = 60;
+      light.shadowCameraBottom = 60;
+      light.shadowCameraNear = 1;
+      light.shadowCameraFar = 1000;
+      light.shadowBias = -0.0001;
+      light.shadowMapWidth = light.shadowMapHeight = 1024;
+      light.shadowDarkness = 0.7;
+
+      scene.add(light);
+
+      const getRandomColor = () => {
+        var r = Math.floor(Math.random() * 256).toString(16);
+        var g = Math.floor(Math.random() * 256).toString(16);
+        var b = Math.floor(Math.random() * 256).toString(16);
+
+        r = r.length === 1 ? "0" + r : r;
+        g = g.length === 1 ? "0" + g : g;
+        b = b.length === 1 ? "0" + b : b;
+        return "#" + r + g + b;
+      };
+
+      function spiralRight(totalCats, totalRotations, a, b, bias) {
+        const dominoPositions = [];
+        const thetaIncrement = (2 * Math.PI * totalRotations) / totalCats;
+
+        for (let i = 0; i < totalCats; i++) {
+          const theta = bias + -i * thetaIncrement;
+          const radius = a + -b * theta;
+
+          const x = radius * Math.cos(theta);
+          const y = radius * Math.sin(theta);
+
+          const rotation =
+            i * (Math.PI / totalCats) * 2 * totalRotations + bias;
+
+          dominoPositions.push({ x, y, rotation });
+        }
+
+        return dominoPositions;
+      }
+
+      function spiralLeft(totalCats, totalRotations, a, b) {
+        const dominoPositions = [];
+        const thetaIncrement = (2 * Math.PI * totalRotations) / totalCats;
+
+        for (let i = 0; i < totalCats; i++) {
+          const theta = bias + i * thetaIncrement;
+          const radius = a + b * theta;
+
+          const x = radius * Math.cos(theta);
+          const y = radius * Math.sin(theta);
+
+          const rotation =
+            -i * (Math.PI / totalCats) * 2 * totalRotations + bias;
+
+          dominoPositions.push({ x, y, rotation });
+        }
+
+        return dominoPositions;
+      }
+
+      function circlePoints(centerX, centerY, pointsNum, radius, part, bias) {
+        const catPositions = [];
+        const thetaIncrement = (2 * Math.PI * part) / pointsNum;
+
+        for (let i = 0; i < pointsNum; i++) {
+          const theta = bias + i * thetaIncrement;
+
+          const x = centerX + radius * Math.cos(theta);
+          const y = centerY + radius * Math.sin(theta);
+          const rotation = (-i * 2 * Math.PI * part) / pointsNum + bias;
+
+          catPositions.push({ x, y, rotation });
+        }
+
+        return catPositions;
+      }
+
+      function createDomino() {
+        return new Physijs.BoxMesh(
+          new THREE.CubeGeometry(5, 10, 2, 10, 10),
+          Physijs.createMaterial(
+            new THREE.MeshLambertMaterial({
+              color: getRandomColor(),
+            }),
+            1,
+            0.7
+          ),
+          50
+        );
+      }
+
+      plane = new Physijs.BoxMesh(
+        new THREE.CubeGeometry(200, 400, 2, 10, 10),
+        Physijs.createMaterial(
+          new THREE.MeshLambertMaterial({
+            color: 0xeeeeee,
+          }),
+          0.4,
+          0.99
+        ),
+        0
+      );
+      plane.rotation.x = Math.PI / 2;
+      plane.receiveShadow = true;
+      plane.__dirtyRotation = true;
+
+      scene.add(plane);
+
+      const dominosNum = 50;
+      // punkty na spirali: dominosNum|rotationNum|a|b
+      const catPositions = spiralRight(dominosNum, 2, 15, 2, Math.PI / 2);
+      for (let i = 0; i < dominosNum; i++) {
+        plane = createDomino();
+        plane.position.y = 6;
+        plane.position.x = catPositions[i].x;
+        plane.position.z = catPositions[i].y;
+        plane.rotation.y = catPositions[i].rotation;
+        plane.receiveShadow = true;
+        scene.add(plane);
+      }
+
+      var x = -4;
+      var z = 36;
+      for (let i = 0; i < 5; i++) {
+        plane = createDomino();
+        plane.position.y = 6;
+        plane.position.x = x + i * 5;
+        plane.position.z = z;
+        plane.rotation.y = Math.PI / 2;
+        plane.receiveShadow = true;
+        scene.add(plane);
+      }
+
+      const firstTurnNum = 4;
+      const firstTurn = circlePoints(
+        20,
+        46,
+        firstTurnNum,
+        10,
+        1 / 4,
+        (Math.PI * 3) / 2
+      );
+      for (let i = 0; i < firstTurnNum; i++) {
+        plane = createDomino();
+        plane.position.y = 6;
+        plane.position.x = firstTurn[i].x;
+        plane.position.z = firstTurn[i].y;
+        plane.rotation.y = firstTurn[i].rotation;
+        plane.receiveShadow = true;
+        scene.add(plane);
+      }
+
+      var x = 30;
+      var z = 48;
+      for (let i = 0; i < 6; i++) {
+        plane = createDomino();
+        plane.position.y = 6;
+        plane.position.x = x;
+        plane.position.z = z + i * 5;
+        plane.receiveShadow = true;
+        scene.add(plane);
+      }
+
+      const secondTurnNum = 4;
+      const secondTurn = circlePoints(20, 78, secondTurnNum, 10, 1 / 4, 0);
+      for (let i = 0; i < secondTurnNum; i++) {
+        plane = createDomino();
+        plane.position.y = 6;
+        plane.position.x = secondTurn[i].x;
+        plane.position.z = secondTurn[i].y;
+        plane.rotation.y = secondTurn[i].rotation;
+        plane.receiveShadow = true;
+        scene.add(plane);
+      }
+
+      var x = -36;
+      var z = 88;
+      for (let i = 0; i < 12; i++) {
+        plane = createDomino();
+        plane.position.y = 6;
+        plane.position.x = x + i * 5;
+        plane.position.z = z;
+        plane.receiveShadow = true;
+        plane.rotation.y = Math.PI / 2;
+        scene.add(plane);
+      }
+
+      ball = new Physijs.SphereMesh(
+        new THREE.SphereGeometry(5, 16, 16),
+        Physijs.createMaterial(
+          new THREE.MeshLambertMaterial({
+            color: getRandomColor(),
+            reflectivity: 0.8,
+          }),
+          0.4,
+          0.99
+        ),
+        10
+      );
+      ball.position.y = 10;
+      ball.position.x = -38;
+      ball.position.z = 90;
+      ball.castShadow = true;
+      ball.receiveShadow = true;
+      scene.add(ball);
+      ball.setLinearVelocity(new THREE.Vector3(0, 0, -300));
+
+      render();
+      scene.simulate();
+
+      function render() {
+        for (var i = 5; i < scene.children.length - 5; i++) {
+          var obj = scene.children[i];
+
+          if (obj.position.y <= -400) {
+            scene.remove(obj);
+          }
+        }
+
+        renderer.render(scene, camera);
+        requestAnimationFrame(render);
+      }
+    </script>
+  </body>
+</html>
